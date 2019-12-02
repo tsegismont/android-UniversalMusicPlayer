@@ -53,6 +53,7 @@ dependencies {
     api "androidx.media:media:$androidx_media_version"
 
     api "com.google.code.gson:gson:$gson_version"
+    api "io.github.tsegismont.vkm:common:1.0"
 
     // ExoPlayer dependencies
 

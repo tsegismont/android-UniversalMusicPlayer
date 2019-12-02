@@ -44,6 +44,8 @@ import com.example.android.uamp.media.extensions.title
 import com.example.android.uamp.media.extensions.trackCount
 import com.example.android.uamp.media.extensions.trackNumber
 import com.google.gson.Gson
+import io.github.tsegismont.vkm.Music
+import io.github.tsegismont.vkm.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -95,15 +97,18 @@ class JsonSource(context: Context, private val source: Uri) : AbstractMusicSourc
             // Get the base URI to fix up relative references later.
             val baseUri = catalogUri.toString().removeSuffix(catalogUri.lastPathSegment ?: "")
 
-            musicCat.music.map { song ->
+            musicCat.music.map { s ->
+
+                var song: Track = s
+
                 // The JSON may have paths that are relative to the source of the JSON
                 // itself. We need to fix them up here to turn them into absolute paths.
                 catalogUri.scheme?.let { scheme ->
                     if (!song.source.startsWith(scheme)) {
-                        song.source = baseUri + song.source
+                        song = song.copy(source = baseUri + song.source)
                     }
                     if (!song.image.startsWith(scheme)) {
-                        song.image = baseUri + song.image
+                        song = song.copy(image = baseUri + song.image)
                     }
                 }
 
@@ -136,10 +141,10 @@ class JsonSource(context: Context, private val source: Uri) : AbstractMusicSourc
      * @return The catalog downloaded, or an empty catalog if an error occurred.
      */
     @Throws(IOException::class)
-    private fun downloadJson(catalogUri: Uri): JsonCatalog {
+    private fun downloadJson(catalogUri: Uri): Music {
         val catalogConn = URL(catalogUri.toString())
         val reader = BufferedReader(InputStreamReader(catalogConn.openStream()))
-        return Gson().fromJson<JsonCatalog>(reader, JsonCatalog::class.java)
+        return Gson().fromJson<Music>(reader, Music::class.java)
     }
 }
 
@@ -147,10 +152,10 @@ class JsonSource(context: Context, private val source: Uri) : AbstractMusicSourc
  * Extension method for [MediaMetadataCompat.Builder] to set the fields from
  * our JSON constructed object (to make the code a bit easier to see).
  */
-fun MediaMetadataCompat.Builder.from(jsonMusic: JsonMusic): MediaMetadataCompat.Builder {
+fun MediaMetadataCompat.Builder.from(jsonMusic: Track): MediaMetadataCompat.Builder {
     // The duration from the JSON is given in seconds, but the rest of the code works in
     // milliseconds. Here's where we convert to the proper units.
-    val durationMs = TimeUnit.SECONDS.toMillis(jsonMusic.duration)
+    val durationMs = TimeUnit.SECONDS.toMillis(jsonMusic.duration.toLong())
 
     id = jsonMusic.id
     title = jsonMusic.title
@@ -160,8 +165,8 @@ fun MediaMetadataCompat.Builder.from(jsonMusic: JsonMusic): MediaMetadataCompat.
     genre = jsonMusic.genre
     mediaUri = jsonMusic.source
     albumArtUri = jsonMusic.image
-    trackNumber = jsonMusic.trackNumber
-    trackCount = jsonMusic.totalTrackCount
+    trackNumber = jsonMusic.trackNumber.toLong()
+    trackCount = jsonMusic.totalTrackCount.toLong()
     flag = MediaItem.FLAG_PLAYABLE
 
     // To make things easier for *displaying* these, set the display properties as well.
